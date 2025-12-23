@@ -115,6 +115,19 @@ describe('cjs extensions for custom middlewares', () => {
   });
 });
 
+describe('ts extensions for custom middlewares', () => {
+  it('responds by simple ts middleware', (done) => {
+    request(app)
+
+      .get('/api/users/4')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect({
+        result: 'ts works'
+      }, done);
+  });
+});
+
 describe('nextOnNotFound setting', () => {
   it('returns correct response when mock is exits', (done) => {
     request(app)

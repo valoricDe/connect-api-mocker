@@ -13,7 +13,7 @@ function escapeRegExp(str) {
 }
 
 function isJsFile(str) {
-  return !!str.match(/\.c?js$/);
+  return !!str.match(/\.(?:c?js|ts)$/);
 }
 
 function defaultLogger(params) {
@@ -107,6 +107,35 @@ function findMatchingPath(requestPath, requestMethodFiles) {
   return result;
 }
 
+function normalizeMiddleware(mod) {
+  // 1. Already a function or array → OK
+  if (typeof mod === 'function' || Array.isArray(mod)) {
+    return mod;
+  }
+
+  // 2. Babel / TS interop
+  if (mod && mod.__esModule && 'default' in mod) {
+    return mod.default;
+  }
+
+  // 3. Native ESM via Symbol.toStringTag
+  if (
+    mod &&
+    typeof mod === 'object' &&
+    mod[Symbol.toStringTag] === 'Module' &&
+    'default' in mod
+  ) {
+    return mod.default;
+  }
+
+  // 4. Node ESM interop fallback (safe)
+  if (mod && typeof mod === 'object' && 'default' in mod) {
+    return mod.default;
+  }
+
+  return mod;
+}
+
 /**
  * @param {string|object} urlRoot Base path for API url or full config object
  * @param {string|object} pathRoot Base path of API mock files. eg: ./mock/api or
@@ -170,10 +199,10 @@ module.exports = function (urlRoot, pathRoot) {
     const returnForPath = function (filePath, requestParams) {
       if (isJsFile(filePath)) {
         logger({
-          req, filePath, fileType: 'js', config
+          req, filePath, config
         });
         delete require.cache[require.resolve(path.resolve(filePath))];
-        let customMiddleware = require(path.resolve(filePath));
+        let customMiddleware = normalizeMiddleware(require(path.resolve(filePath)));
         if (requestParams) {
           req.params = requestParams;
         }
@@ -222,7 +251,7 @@ module.exports = function (urlRoot, pathRoot) {
       methodFileExtension = req.accepts(['json', 'xml']);
     }
 
-    const fileExtensions = [methodFileExtension, 'cjs', 'js'];
+    const fileExtensions = [methodFileExtension, 'ts', 'cjs', 'js'];
     const jsMockFiles = fileExtensions.map((ext) => `${req.method}.${ext}`);
     const wildcardJsMockFiles = fileExtensions.map((ext) => `ANY.${ext}`);
     const methodFiles = [...jsMockFiles, ...wildcardJsMockFiles];
